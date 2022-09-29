@@ -342,7 +342,7 @@ namespace MySql.Data.MySqlClient
           }
         }
 
-        if (Convert.ToInt32(serverAutocommit) == 0 && Version.isAtLeast(8, 0, 0))
+        if (serverAutocommit != "True" && Convert.ToInt32(serverAutocommit) == 0 && Version.isAtLeast(8, 0, 0))
         {
           cmd = new MySqlCommand("commit", connection);
           cmd.ExecuteNonQuery();
