@@ -495,7 +495,7 @@ namespace MySql.Data.MySqlClient
 
           if (Settings.DnsSrv)
           {
-            var dnsSrvRecords = DnsResolver.GetDnsSrvRecords(Settings.Server);
+            var dnsSrvRecords = DnsSrv.GetDnsSrvRecords(Settings.Server);
             FailoverManager.SetHostList(dnsSrvRecords.ConvertAll(r => new FailoverServer(r.Target, r.Port, null)),
               FailoverMethod.Sequential);
           }
@@ -588,6 +588,19 @@ namespace MySql.Data.MySqlClient
     {
       try
       {
+        if (driver.HasStatus(ServerStatusFlags.InTransaction))
+        {
+          MySqlConnection newConn = (MySqlConnection)this.Clone();
+          Driver newDriver = Driver.Create(new MySqlConnectionStringBuilder(newConn.ConnectionString));
+
+          lock(newDriver)
+          {
+            newConn.driver = newDriver;
+            newDriver.currentTransaction = driver.currentTransaction;
+            driver.currentTransaction.Connection = newConn;
+          }
+        }
+
         driver.Close();
       }
       catch (Exception ex)

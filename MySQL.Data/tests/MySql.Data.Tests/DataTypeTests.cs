@@ -386,6 +386,43 @@ namespace MySql.Data.MySqlClient.Tests
     }
 
     /// <summary>
+    /// Bug #29959095 incorrect integer value using prepared statement with MySqlDbType.INT24
+    /// </summary>
+    [TestCase(true)]
+    [TestCase(false)]
+    public void UsingInt24InPreparedStatement(bool prepare)
+    {
+      void insertInt24()
+      {
+        ExecuteSQL("CREATE TABLE Test(data MEDIUMINT)");
+        using (var command = new MySqlCommand(@"INSERT INTO Test(data) VALUES(@data);", Connection))
+        {
+          command.Parameters.AddWithValue("@data", 1234567).MySqlDbType = MySqlDbType.Int24;
+          if(prepare) command.Prepare();
+          command.ExecuteNonQuery();
+        }
+      }
+      Assert.DoesNotThrow(insertInt24);
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void OverflowInt24InPreparedStatement(bool prepare)
+    {
+      void insertInt24()
+      {
+        ExecuteSQL("CREATE TABLE Test(data MEDIUMINT)");
+        using (var command = new MySqlCommand(@"INSERT INTO Test(data) VALUES(@data);", Connection))
+        {
+          command.Parameters.AddWithValue("@data", 12345678910).MySqlDbType = MySqlDbType.Int24;
+          if (prepare) command.Prepare();
+          command.ExecuteNonQuery();
+        }
+      }
+      Assert.Catch(insertInt24);
+    }
+
+    /// <summary>
     /// Bug #25912 selecting negative time values gets wrong results 
     /// </summary>
     [Test]
@@ -828,7 +865,7 @@ namespace MySql.Data.MySqlClient.Tests
     {
       var bytes = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x01, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
       MySqlGeometry v = new MySqlGeometry(MySqlDbType.Geometry, bytes);
-#if (NETCOREAPP3_1 || NET5_0 || NET6_0)
+#if !NETFRAMEWORK
       Assert.AreEqual("POINT(3.5E-323 0)", v.ToString());
 #else
       Assert.AreEqual("POINT(3.45845952088873E-323 0)", v.ToString());
@@ -866,7 +903,7 @@ namespace MySql.Data.MySqlClient.Tests
         reader.Read();
         var val = reader.GetMySqlGeometry(0);
         var valWithName = reader.GetMySqlGeometry("v");
-#if (NETCOREAPP3_1 || NET5_0 || NET6_0)
+#if !NETFRAMEWORK
         Assert.AreEqual("POINT(3.5E-323 0)", val.ToString());
         Assert.AreEqual("POINT(3.5E-323 0)", valWithName.ToString());
 #else

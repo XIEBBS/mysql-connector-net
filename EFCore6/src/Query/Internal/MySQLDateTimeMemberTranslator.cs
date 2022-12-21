@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2021, Oracle and/or its affiliates.
+﻿// Copyright (c) 2021, 2022, Oracle and/or its affiliates.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License, version 2.0, as
@@ -42,14 +42,15 @@ namespace MySql.EntityFrameworkCore.Query.Internal
     private static readonly Dictionary<string, (string Part, int Divisor)> _datePartMapping
         = new Dictionary<string, (string, int)>
         {
-                { nameof(DateTime.Year), ("year", 1) },
-                { nameof(DateTime.Month), ("month", 1) },
-                { nameof(DateTime.Day), ("day", 1) },
-                { nameof(DateTime.Hour), ("hour", 1) },
-                { nameof(DateTime.Minute), ("minute", 1) },
-                { nameof(DateTime.Second), ("second", 1) },
-                { nameof(DateTime.Millisecond), ("microsecond", 1000) },
+          { nameof(DateTime.Year), ("year", 1) },
+          { nameof(DateTime.Month), ("month", 1) },
+          { nameof(DateTime.Day), ("day", 1) },
+          { nameof(DateTime.Hour), ("hour", 1) },
+          { nameof(DateTime.Minute), ("minute", 1) },
+          { nameof(DateTime.Second), ("second", 1) },
+          { nameof(DateTime.Millisecond), ("microsecond", 1000) },
         };
+
     private readonly MySQLSqlExpressionFactory _sqlExpressionFactory;
 
     public MySQLDateTimeMemberTranslator(ISqlExpressionFactory sqlExpressionFactory)
@@ -57,12 +58,18 @@ namespace MySql.EntityFrameworkCore.Query.Internal
       _sqlExpressionFactory = (MySQLSqlExpressionFactory)sqlExpressionFactory;
     }
 
-    public virtual SqlExpression? Translate(SqlExpression? instance, MemberInfo member, Type returnType, IDiagnosticsLogger<DbLoggerCategory.Query> logger)
+    public virtual SqlExpression? Translate(
+      SqlExpression? instance,
+      MemberInfo member,
+      Type returnType,
+      IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
       var declaringType = member.DeclaringType;
 
       if (declaringType == typeof(DateTime)
-          || declaringType == typeof(DateTimeOffset))
+          || declaringType == typeof(DateTimeOffset)
+          || declaringType == typeof(DateOnly)
+          || declaringType == typeof(TimeOnly))
       {
         var memberName = member.Name;
 
@@ -96,54 +103,55 @@ namespace MySql.EntityFrameworkCore.Query.Internal
         switch (memberName)
         {
           case nameof(DateTime.DayOfYear):
-            return _sqlExpressionFactory.Function(
+            return _sqlExpressionFactory.NullableFunction(
               "DAYOFYEAR",
               new[] { instance! },
-              nullable: true,
-              argumentsPropagateNullability: TrueArrays[1],
-              returnType);
+              returnType,
+              false);
 
           case nameof(DateTime.Date):
-            return _sqlExpressionFactory.Function(
+            return _sqlExpressionFactory.NullableFunction(
               "CONVERT",
               new[]{
                 instance!,
                 _sqlExpressionFactory.Fragment("date")
               },
-              nullable: true,
-              argumentsPropagateNullability: TrueArrays[1],
-              returnType);
+              returnType,
+              false);
 
           case nameof(DateTime.TimeOfDay):
             return _sqlExpressionFactory.Convert(instance!, returnType);
 
           case nameof(DateTime.Now):
-            return _sqlExpressionFactory.Function(
+            return _sqlExpressionFactory.NonNullableFunction(
               declaringType == typeof(DateTimeOffset)
               ? "UTC_TIMESTAMP"
               : "CURRENT_TIMESTAMP",
               Array.Empty<SqlExpression>(),
-              nullable: true,
-              argumentsPropagateNullability: TrueArrays[0],
               returnType);
 
           case nameof(DateTime.UtcNow):
-            return _sqlExpressionFactory.Function(
+            return _sqlExpressionFactory.NonNullableFunction(
               "UTC_TIMESTAMP",
               Array.Empty<SqlExpression>(),
-              nullable: true,
-              argumentsPropagateNullability: TrueArrays[0],
               returnType);
 
           case nameof(DateTime.Today):
-            return _sqlExpressionFactory.Function(
+            return _sqlExpressionFactory.NonNullableFunction(
               declaringType == typeof(DateTimeOffset)
               ? "UTC_DATE"
               : "CURDATE",
               Array.Empty<SqlExpression>(),
-              nullable: true,
-              argumentsPropagateNullability: TrueArrays[0],
               returnType);
+
+          case nameof(DateTime.DayOfWeek):
+            return _sqlExpressionFactory.Subtract(
+              _sqlExpressionFactory.NullableFunction(
+                "DAYOFWEEK",
+                new[] { instance! },
+                returnType,
+                false),
+              _sqlExpressionFactory.Constant(1));
         }
       }
 

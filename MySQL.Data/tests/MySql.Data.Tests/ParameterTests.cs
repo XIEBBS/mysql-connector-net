@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+﻿// Copyright (c) 2013, 2022, Oracle and/or its affiliates.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License, version 2.0, as
@@ -29,6 +29,8 @@
 using NUnit.Framework;
 using System;
 using System.Data;
+using System.Diagnostics;
+using System.IO;
 
 namespace MySql.Data.MySqlClient.Tests
 {
@@ -188,6 +190,36 @@ namespace MySql.Data.MySqlClient.Tests
       }
       catch (ArgumentException)
       {
+      }
+    }
+
+    /// <summary>
+    /// Bug #32506736  	Can't use MemoryStream as MySqlParameter value
+    /// </summary>
+    [Test]
+    public void MemoryStreamAsParameterValue()
+    {
+      ExecuteSQL("CREATE TABLE Test(str TEXT, blb BLOB,num INT); ");
+
+      using (MySqlCommand cmd = new MySqlCommand("INSERT INTO Test(str, blb, num) VALUES(@str, @blb, @num); ", Connection))
+      {
+        using var streamString = new MemoryStream(new byte[] { 97, 98, 99, 100 });//abcd
+        cmd.Parameters.AddWithValue("@str", streamString);
+        using var streamBlob = new MemoryStream(new byte[] { 101, 102, 103, 104 });//efgh
+        cmd.Parameters.AddWithValue("@blb", streamBlob);
+        using var streamnumber = new MemoryStream(new byte[] { 53, 54, 55, 56 });//5678
+        cmd.Parameters.AddWithValue("@num", streamnumber);
+        cmd.ExecuteNonQuery();
+
+        cmd.CommandText = "SELECT * FROM Test";
+
+        using (MySqlDataReader reader = cmd.ExecuteReader())
+        {
+          reader.Read();
+          Assert.AreEqual("abcd", reader.GetString(0));
+          Assert.AreEqual("efgh", reader.GetString(1));
+          Assert.AreEqual("5678", reader.GetString(2));
+        }
       }
     }
 
@@ -828,6 +860,44 @@ namespace MySql.Data.MySqlClient.Tests
       Assert.AreEqual(DbType.String, newParam.DbType);
       Assert.AreEqual(MySqlDbType.Int32, newIntParam.MySqlDbType);
       Assert.AreEqual(DbType.Int32, newIntParam.DbType);
+    }
+
+    /// <summary>
+    /// Bug #33710643 [Poor performance when adding parameters with "Add(Object)"]
+    /// Before the fix, the method Add(object value) was above the 8-10 seconds.
+    /// </summary>
+    [Test]
+    public void AddObjectPerformance()
+    {
+      int paramCount = 50000;
+      var cmd = new MySqlCommand();
+      var sw1 = new Stopwatch();
+      var sw2 = new Stopwatch();
+
+      sw1.Start();
+      for (int i = 0; i < paramCount; i++)
+      {
+        IDbDataParameter p = cmd.CreateParameter();
+        p.ParameterName = $"?param_{i}";
+        p.DbType = DbType.String;
+        cmd.Parameters.AddWithValue(p.ParameterName, p);
+      }
+      sw1.Stop();
+      cmd.Parameters.Clear();
+
+      sw2.Start();
+      for (int i = 0; i < paramCount; i++)
+      {
+        IDbDataParameter p = cmd.CreateParameter();
+        p.ParameterName = $"?param_{i}";
+        p.DbType = DbType.String;
+        cmd.Parameters.Add(p);
+      }
+      sw2.Stop();
+      Console.Write(sw2.Elapsed);
+
+      Assert.True(sw1.Elapsed.TotalSeconds < 1);
+      Assert.True(sw2.Elapsed.TotalSeconds < 1);
     }
   }
 }

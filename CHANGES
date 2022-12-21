@@ -1,3 +1,21 @@
+8.0.31
+- Removed the MySql.EMTrace project (WL5158).
+- Removed the Memcached client from Connector/NET (WL15213).
+- Added support for the .NET 7.0 preview release (WL15195).
+- Implemented the DNS SRV query resolver (WL14016).
+- Added support for the EF Core 7.0 preview release (WL15194).
+- Fixed a bug that prevented the proper installation of Connector/NET (MySQL Bug #107316, Oracle Bug #34189859).
+- Changed the exception that Connector/NET throws when a connection timeout expires (from TimeoutException to MySqlException) (MySQL Bug #107600, Oracle Bug #34299402).
+- Contribution: Added PackageLicenseExpression to display licensing information from NuGet (MySQL Bug #108091, Oracle Bug #34477295). Thanks to Matthew Steeples for the contribution.
+- Fixed a bug that raised an exception when trying to do an equality check on Datetime.Date (MySQL Bug #107618, Oracle Bug #34317220).
+- Fixed a bug that overrode the query attribute's value when using command parameters with the same name (MySQL Bug #105728, Oracle Bug #33620022).
+- Improved the performance for the Add(object value) method of the MySqlParameterCollection object (MySQL Bug #105997, Oracle Bug #33710643).
+- Fixed a bug that closes the connection when an exception occurs and prevents the rollback from happening when using transactions (MySQL Bug #107110, Oracle Bug #34107186).
+- Fixed a bug that raised an exception when using Int24 data type in prepared commands (MySQL Bug #95986, Oracle Bug #29959095).
+- Contribution: Fixed a malformed URL (MySQL Bug #108290, Oracle Bug #34535732). Thanks to Adam Croot for the contribution.
+- Fixed a bug that prevented the use of a MemoryStream object as a MySqlParameter value parameter (MySQL Bug #102593, Oracle Bug #32506736).
+
+
 8.0.30
 - Deprecated the MySql.EMTrace project. This will be removed in 8.0.31 (WL15159).
 - Deprecate memcached client. This will be removed in 8.0.31 (WL15163).
