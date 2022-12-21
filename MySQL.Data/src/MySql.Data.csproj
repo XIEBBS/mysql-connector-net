@@ -1,4 +1,4 @@
-<Project>
+﻿<Project>
   <Import Sdk="Microsoft.NET.Sdk" Project="Sdk.props" />
 
   <PropertyGroup>
@@ -8,7 +8,7 @@
     <Version>8.0.30</Version>
     <Authors>Oracle</Authors>
     <AssemblyName>MySql.Data</AssemblyName>
-    <TargetFrameworks>netstandard2.0;netstandard2.1;net5.0;net6.0;</TargetFrameworks>
+    <TargetFrameworks>net6.0</TargetFrameworks>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeThirdPartyAssemblies</TargetsForTfmSpecificBuildOutput>
     <PackageId>MySql.Data</PackageId>
     <PackageTags>MySql;.NET Connector;MySql Connector/NET;netcore;.Net Core;MySql Conector/Net Core;coreclr;C/NET;C/Net Core</PackageTags>
@@ -86,9 +86,9 @@
 
   <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0' or '$(TargetFramework)'=='netstandard2.1' or '$(TargetFramework)'=='net5.0' or '$(TargetFramework)'=='net6.0'">
     <Compile Remove="Framework/net452/*" />
-    <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.4.1" />
-    <PackageReference Include="System.Security.Permissions" Version="4.7.0" />
-    <PackageReference Include="System.Text.Encoding.CodePages" Version="4.4.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0" />
+    <PackageReference Include="System.Security.Permissions" Version="7.0.0" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="7.0.0" />
     <Reference Include="ZstdNet">
       <HintPath>..\..\Dependencies\ZstdNet\NetStandard2.0\ZstdNet.dll</HintPath>
     </Reference>
