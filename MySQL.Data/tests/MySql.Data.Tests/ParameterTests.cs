@@ -194,6 +194,24 @@ namespace MySql.Data.MySqlClient.Tests
     }
 
     /// <summary>
+    /// Bug #28980952  	MySqlParameterCollection.Add precondition check isn't consistent
+    /// </summary>
+    [TestCase("testParam", "testParam")]
+    [TestCase("testParam", "@testParam")]
+    [TestCase("@testParam", "@testParam")]
+    [TestCase("@testParam", "testParam")]
+    [TestCase("@testParam", "?testParam")]
+    [TestCase("?testParam", "@testParam")]
+    public void AddParameterCheck(string param1, string param2)
+    {
+      using (MySqlCommand cmd = new MySqlCommand())
+      {
+        cmd.Parameters.AddWithValue(param1, 1);
+        Assert.Throws<MySqlException>(() => cmd.Parameters.AddWithValue(param2, 2));
+      }
+    }
+
+    /// <summary>
     /// Bug #32506736  	Can't use MemoryStream as MySqlParameter value
     /// </summary>
     [Test]
@@ -220,6 +238,65 @@ namespace MySql.Data.MySqlClient.Tests
           Assert.AreEqual("efgh", reader.GetString(1));
           Assert.AreEqual("5678", reader.GetString(2));
         }
+      }
+    }
+
+    /// <summary>
+    /// Bug #28777779  	MySqlParameter.Clone doesn't clone all properties
+    /// </summary>
+    [Test]
+    public void ParameterClone()
+    {
+      var param = new MySqlParameter()
+      {
+        DbType = DbType.Int32,
+        Direction = ParameterDirection.Output,
+        Encoding = System.Text.Encoding.UTF8,
+        IsNullable = true,
+        MySqlDbType = MySqlDbType.Int32,
+        ParameterName = "test",
+        Precision = 3,
+        Scale = 2,
+        Size = 1,
+        SourceColumnNullMapping = true,
+        Value = 1
+      };
+
+      var clonedparam = param.Clone();
+
+      Assert.AreEqual(DbType.Int32, clonedparam.DbType);
+      Assert.AreEqual(ParameterDirection.Output, clonedparam.Direction);
+      Assert.AreEqual(System.Text.Encoding.UTF8, clonedparam.Encoding);
+      Assert.IsTrue(clonedparam.IsNullable);
+      Assert.AreEqual(MySqlDbType.Int32, clonedparam.MySqlDbType);
+      Assert.AreEqual("test", clonedparam.ParameterName);
+      Assert.AreEqual((byte)3, clonedparam.Precision);
+      Assert.AreEqual((byte)2, clonedparam.Scale);
+      Assert.AreEqual(1, clonedparam.Size);
+      Assert.IsTrue(clonedparam.SourceColumnNullMapping);
+      Assert.AreEqual(1, clonedparam.Value);
+    }
+
+    /// <summary>
+    /// Bug #20259756 MysqlParameter direction output does not work for text commands
+    /// </summary>
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ParameterDirectionOutputTextCommand(bool preparedCommand)
+    {
+      using (MySqlCommand cmd = Connection.CreateCommand())
+      {
+        cmd.CommandText = "set @outputParam=1234;";
+        cmd.CommandType = CommandType.Text;
+        MySqlParameter outParam = new MySqlParameter();
+        outParam.ParameterName = "@outputParam";
+        outParam.MySqlDbType = MySqlDbType.Int32;
+        outParam.Direction = ParameterDirection.Output;
+        cmd.Parameters.Add(outParam);
+        if (preparedCommand) cmd.Prepare();
+
+        cmd.ExecuteNonQuery();
+        Assert.AreEqual(1234, cmd.Parameters["@outputParam"].Value);
       }
     }
 

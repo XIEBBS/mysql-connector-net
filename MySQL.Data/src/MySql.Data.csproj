@@ -5,7 +5,7 @@
     <Description>MySql.Data.MySqlClient .Net Core Class Library</Description>
     <Copyright>Copyright (c) 2016, 2022, Oracle and/or its affiliates.</Copyright>
     <NeutralLanguage>en-US</NeutralLanguage>
-    <Version>8.0.31</Version>
+    <Version>8.0.32</Version>
     <Authors>Oracle</Authors>
     <AssemblyName>MySql.Data</AssemblyName>
     <TargetFrameworks>net7.0;</TargetFrameworks>
@@ -39,16 +39,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Google.Protobuf" Version="3.19.4" />
-    <PackageReference Include="K4os.Compression.LZ4.Streams" Version="1.2.6" />
+    <PackageReference Include="Google.Protobuf" Version="3.22.1" />
+    <PackageReference Include="K4os.Compression.LZ4.Streams" Version="1.3.5" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
     <PackageReference Include="System.Buffers" Version="4.5.1" />
-    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="5.0.0" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="7.0.0-preview.2.22152.2" />
   </ItemGroup>
 
   <Target Name="IncludeThirdPartyAssemblies">
     <ItemGroup>
       <BuildOutputInPackage Include="$(OutputPath)ZstdNet.dll" />
+      <BuildOutputInPackage Include="$(OutputPath)gssapi64.dll" />
+      <BuildOutputInPackage Include="$(OutputPath)comerr64.dll" />
+      <BuildOutputInPackage Include="$(OutputPath)k5sprt64.dll" />
+      <BuildOutputInPackage Include="$(OutputPath)krb5_64.dll" />
+      <BuildOutputInPackage Include="$(OutputPath)krbcc64.dll" />
     </ItemGroup>
   </Target>
 
@@ -58,6 +63,12 @@
     </None>
     <None Update="..\..\README">
       <Pack>true</Pack>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\Dependencies\MITLibs\*">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
@@ -77,11 +88,12 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0' or '$(TargetFramework)'=='netstandard2.1' or '$(TargetFramework)'=='net5.0' or '$(TargetFramework)'=='net6.0' or '$(TargetFramework)'=='net7.0'">
+  <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0' or '$(TargetFramework)'=='netstandard2.1' or '$(TargetFramework)'=='net6.0' or '$(TargetFramework)'=='net7.0'">
     <Compile Remove="Framework/net452/*" />
-    <PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0" />
-    <PackageReference Include="System.Security.Permissions" Version="7.0.0" />
-    <PackageReference Include="System.Text.Encoding.CodePages" Version="7.0.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0-preview.1.23110.8" />
+    <PackageReference Include="System.Security.Permissions" Version="8.0.0-preview.1.23110.8" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0-preview.1.23110.8" />
+    <PackageReference Include="System.Runtime.Loader" Version="4.3.0" />
     <Reference Include="ZstdNet">
       <HintPath>..\..\Dependencies\ZstdNet\NetStandard2.0\ZstdNet.dll</HintPath>
     </Reference>

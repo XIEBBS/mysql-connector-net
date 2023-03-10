@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2021, Oracle and/or its affiliates.
+﻿// Copyright (c) 2021, 2022, Oracle and/or its affiliates.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License, version 2.0, as
@@ -36,16 +36,16 @@ namespace MySql.Data.Authentication.GSSAPI.Native
   /// </summary>
   internal static class NativeMethodsLinux
   {
-    private const string GssModulename = "libgssapi_krb5.so.2";
+    private const string GSS_MODULE_NAME = "libgssapi_krb5.so.2";
 
-    [DllImport(GssModulename, EntryPoint = "gss_import_name")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_import_name")]
     internal static extern uint gss_import_name(
       out uint minorStatus,
       ref GssBufferDescStruct inputNameBuffer,
       ref GssOidDescStruct inputNameType,
       out IntPtr outputName);
 
-    [DllImport(GssModulename, EntryPoint = "gss_acquire_cred")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_acquire_cred")]
     internal static extern uint gss_acquire_cred(
       out uint minorStatus,
       IntPtr desiredName,
@@ -56,7 +56,7 @@ namespace MySql.Data.Authentication.GSSAPI.Native
       IntPtr actualMech,
       out uint expiryTime);
 
-    [DllImport(GssModulename, EntryPoint = "gss_acquire_cred_with_password")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_acquire_cred_with_password")]
     internal static extern uint gss_acquire_cred_with_password(
       out uint minorStatus,
       IntPtr desiredName,
@@ -68,7 +68,7 @@ namespace MySql.Data.Authentication.GSSAPI.Native
       IntPtr actualMechs,
       out uint expiryTime);
 
-    [DllImport(GssModulename, EntryPoint = "gss_init_sec_context")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_init_sec_context")]
     internal static extern uint gss_init_sec_context(
       out uint minorStatus,
       IntPtr claimantCredHandle,
@@ -84,7 +84,7 @@ namespace MySql.Data.Authentication.GSSAPI.Native
       IntPtr retFlags,
       IntPtr timeRec);
 
-    [DllImport(GssModulename, EntryPoint = "gss_display_status")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_display_status")]
     internal static extern uint gss_display_status(
       out uint minorStatus,
       uint status,
@@ -93,28 +93,28 @@ namespace MySql.Data.Authentication.GSSAPI.Native
       ref IntPtr messageContext,
       ref GssBufferDescStruct statusString);
 
-    [DllImport(GssModulename, EntryPoint = "gss_release_buffer")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_release_buffer")]
     internal static extern uint gss_release_buffer(
       out uint minorStatus,
       ref GssBufferDescStruct buffer);
 
-    [DllImport(GssModulename, EntryPoint = "gss_release_cred")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_release_cred")]
     internal static extern uint gss_release_cred(
       out uint minorStatus,
       ref IntPtr credentialHandle);
 
-    [DllImport(GssModulename, EntryPoint = "gss_release_name")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_release_name")]
     internal static extern uint gss_release_name(
       out uint minorStatus,
       ref IntPtr inputName);
 
-    [DllImport(GssModulename, EntryPoint = "gss_delete_sec_context")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_delete_sec_context")]
     internal static extern uint gss_delete_sec_context(
       out uint minorStatus,
       ref IntPtr contextHandle,
       IntPtr outputToken);
 
-    [DllImport(GssModulename, EntryPoint = "gss_unwrap")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_unwrap")]
     internal static extern uint gss_unwrap(
       out uint minorStatus,
       IntPtr contextHandle,
@@ -123,7 +123,7 @@ namespace MySql.Data.Authentication.GSSAPI.Native
       out int confState,
       out uint qopState);
 
-    [DllImport(GssModulename, EntryPoint = "gss_wrap")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_wrap")]
     internal static extern uint gss_wrap(
       out uint minorStatus,
       IntPtr contextHandle,
@@ -133,7 +133,7 @@ namespace MySql.Data.Authentication.GSSAPI.Native
       int confState,
       out GssBufferDescStruct outputMessage);
 
-    [DllImport(GssModulename, EntryPoint = "gss_inquire_cred")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_inquire_cred")]
     internal static extern uint gss_inquire_cred(
       out uint minorStatus,
       IntPtr credentialHandle,
@@ -142,7 +142,7 @@ namespace MySql.Data.Authentication.GSSAPI.Native
       out int credentialUsage,
       out IntPtr mechs);
 
-    [DllImport(GssModulename, EntryPoint = "gss_display_name")]
+    [DllImport(GSS_MODULE_NAME, EntryPoint = "gss_display_name")]
     internal static extern uint gss_display_name(
         out uint minorStatus,
         IntPtr inputName,

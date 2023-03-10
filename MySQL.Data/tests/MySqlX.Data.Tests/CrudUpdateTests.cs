@@ -129,7 +129,7 @@ namespace MySqlX.Data.Tests
       Assert.AreEqual(ResourcesX.DocPathNullOrEmpty, ex2.Message);
 
       // Unset with special chars.
-      Assert.Throws<ArgumentException>(() => ExecuteModifyStatement(coll.Modify("_id = 3").Unset(null).Unset("@*%#ç")));
+      Assert.Throws<ArgumentException>(() => ExecuteModifyStatement(coll.Modify("_id = 3").Unset(null).Unset("@*%#?")));
       Assert.Throws<ArgumentException>(() => ExecuteModifyStatement(coll.Modify("_id = 3").Unset(null).Unset("******")));
     }
 

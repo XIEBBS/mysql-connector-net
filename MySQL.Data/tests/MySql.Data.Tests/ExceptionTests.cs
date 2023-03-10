@@ -29,12 +29,21 @@
 using NUnit.Framework;
 using System;
 using System.Data;
+using System.Reflection;
 using System.Threading;
 
 namespace MySql.Data.MySqlClient.Tests
 {
   public class ExceptionTests : TestBase
   {
+    private string maxConnections;
+
+    protected override void Cleanup()
+    {
+      if (!string.IsNullOrEmpty(maxConnections))
+        ExecuteSQL($"SET GLOBAL max_connections = {maxConnections};");
+    }
+
     [Test]
     public void Timeout()
     {
@@ -121,6 +130,34 @@ namespace MySql.Data.MySqlClient.Tests
             count += 1;
           }
         }
+      }
+    }
+
+    /// <summary>
+    /// Bug #21830667	EXCEPTION.NUMBER ALWAYS 0
+    /// </summary>
+    [TestCase("Port", 1455, 1042)]
+    [TestCase("Database", "nonExistingDB", 1049)]
+    [TestCase("UserID", "nonExistingUser", 1045)]
+    [TestCase("Server", "nonExistingServer", 1042)]
+    [TestCase("MaxConnections", "", 1040)]
+    public void AuthenticationExceptionNumber(string propertyName, object propertyValue, int exNumber)
+    {
+      MySqlConnectionStringBuilder builder = new MySqlConnectionStringBuilder(Settings.ConnectionString);
+      if (propertyName != "MaxConnections")
+      {
+        PropertyInfo info = builder.GetType().GetProperty(propertyName);
+        info.SetValue(builder, Convert.ChangeType(propertyValue, info.PropertyType));
+      }
+      using (MySqlConnection conn = new MySqlConnection(builder.ConnectionString))
+      {
+        if (exNumber == 1040)
+        {
+          maxConnections = ExecuteScalar("SELECT @@GLOBAL.max_connections;").ToString();
+          ExecuteSQL("SET GLOBAL max_connections = 1;");
+        }
+        MySqlException exDefault = Assert.Throws<MySqlException>(() => conn.Open());
+        Assert.AreEqual(exNumber, exDefault.Number);
       }
     }
   }
