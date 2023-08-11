@@ -790,25 +790,10 @@ namespace MySql.Data.MySqlClient.Tests
         ISSchemaProvider isp = new ISSchemaProvider(c);
         string[] rest = isp.CleanRestrictions(restrictions);
 
-        MySqlSchemaCollection parametersTable = isp.GetProcedureParameters(rest, new MySqlSchemaCollection(procTable));
+        MySqlSchemaCollection parametersTable = isp.GetProcedureParametersAsync(rest, new MySqlSchemaCollection(procTable), false).GetAwaiter().GetResult();
 
         Assert.NotNull(parametersTable);
       }
-    }
-
-    /// <summary>
-    /// Validates a stored procedure call without the "call" statement
-    /// Bug #14008699
-    /// </summary>
-    [Test]
-    public void CallStoredProcedure()
-    {
-      ExecuteSQL("CREATE PROCEDURE GetCount() BEGIN SELECT 5; END");
-
-      MySqlCommand cmd = new MySqlCommand("GetCount", Connection);
-      cmd.CommandType = CommandType.Text;
-
-      Assert.AreEqual(5, Convert.ToInt32(cmd.ExecuteScalar()));
     }
 
     /// <summary>

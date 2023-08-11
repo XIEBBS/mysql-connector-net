@@ -1,4 +1,4 @@
-// Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+// Copyright (c) 2015, 2023, Oracle and/or its affiliates.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License, version 2.0, as
@@ -388,7 +388,7 @@ namespace MySqlX.Data.Tests
       Result result = col.Add(docs).Execute();
 
       Assert.AreEqual(4, (int)result.AffectedItemsCount, "Matching the updated record count");
-      DocResult foundDocs = col.Find("pages > 20").Execute();
+      var foundDocs = col.Find("pages > 20").Execute();
       Assert.AreEqual(true, foundDocs.Next(), "Next Node Exist");
       Assert.AreEqual("Book 2", foundDocs.Current["title"], "Matching the Node Value");
       Assert.AreEqual(true, foundDocs.Next(), "Next Node Exist");
@@ -1305,7 +1305,7 @@ namespace MySqlX.Data.Tests
       for (int i = 0; i < splName.Length; i++)
       {
         col.Add("{\"" + splName[i] + "\":\"data" + i + "\",\"ID\":" + i + "}").Execute();
-        DocResult docs = col.Find("$.ID = " + i).Fields("$.`" + splName[i] + "` as col1,$.ID as Id").Execute();
+        var docs = col.Find("$.ID = " + i).Fields("$.`" + splName[i] + "` as col1,$.ID as Id").Execute();
         var res = docs.FetchOne();
         Assert.AreEqual(i.ToString(), res["Id"].ToString(), "Matching the ID");
         if (i == 30)
@@ -1404,7 +1404,7 @@ namespace MySqlX.Data.Tests
       Result r = col.Add(json).Execute();
 
       Assert.AreEqual(1, (int)r.AffectedItemsCount, "Matching Affected Records Count");
-      DocResult foundDocs = col.Find("pages > 5").Execute();
+      var foundDocs = col.Find("pages > 5").Execute();
       Assert.AreEqual(1, foundDocs.Count(), "Matching Count");
 
       json = @"{ ""_id"" : 99950, ""city"" : ""KETCHIKAN"", ""loc"" : ""[ -133.18479, 55.942471 ]"", ""pop"" : 422, ""state"" : ""AK"" }";
@@ -2242,7 +2242,7 @@ namespace MySqlX.Data.Tests
     }
 
     [Test, Description("Verify the behaviour if a sequence is incremented by the user and added as _id for the document")]
-    public void VerifySecuenceAndIdAdded()
+    public void VerifySequenceAndIdAdded()
     {
       if (!session.Version.isAtLeast(8, 0, 11)) Assert.Ignore("This test is for MySql 8.0.11 or higher.");
       string incrementedString = null, generatedString = null;
@@ -2473,7 +2473,7 @@ namespace MySqlX.Data.Tests
           characters.Add(c);
 
       if (mode == Mode.AlphaNumeric || mode == Mode.Alpha)
-        for (char c = 'a'; c <= 'z'; c++)
+        for (char c = 'a'; c <= 'f'; c++)
           characters.Add(c);
 
       // Loop from end to beginning

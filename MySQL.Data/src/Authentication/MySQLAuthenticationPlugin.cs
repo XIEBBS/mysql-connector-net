@@ -1,4 +1,4 @@
-// Copyright (c) 2012, 2022, Oracle and/or its affiliates.
+// Copyright (c) 2012, 2023, Oracle and/or its affiliates.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License, version 2.0, as
@@ -29,6 +29,7 @@
 using System;
 using System.Diagnostics;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace MySql.Data.MySqlClient.Authentication
 {
@@ -57,15 +58,17 @@ namespace MySql.Data.MySqlClient.Authentication
     /// <summary>
     /// This is a factory method that is used only internally.  It creates an auth plugin based on the method type
     /// </summary>
-    /// <param name="method"></param>
-    /// <param name="driver"></param>
-    /// <param name="authData"></param>
+    /// <param name="method">Authentication method.</param>
+    /// <param name="driver">The driver.</param>
+    /// <param name="authData">The authentication data.</param>
+    /// <param name="execAsync">Boolean that indicates if the function will be executed asynchronously.</param>
+    /// <param name="mfaIteration">MultiFactorAuthentication iteration.</param>
     /// <returns></returns>
-    internal static MySqlAuthenticationPlugin GetPlugin(string method, NativeDriver driver, byte[] authData, int mfaIteration = 1)
+    internal static async Task<MySqlAuthenticationPlugin> GetPluginAsync(string method, NativeDriver driver, byte[] authData, bool execAsync, int mfaIteration = 1)
     {
       if (method == "mysql_old_password")
       {
-        driver.Close(true);
+        await driver.CloseAsync(true, execAsync).ConfigureAwait(false);
         throw new MySqlException(Resources.OldPasswordsNotSupported);
       }
       MySqlAuthenticationPlugin plugin = AuthenticationPluginManager.GetPlugin(method);
@@ -135,48 +138,49 @@ namespace MySql.Data.MySqlClient.Authentication
     /// Defines the behavior when more data is required from the server.
     /// </summary>
     /// <param name="data">The data returned by the server.</param>
+    /// <param name="execAsync">Boolean that indicates if the function will be executed asynchronously.</param>
     /// <returns>The data to return to the server.</returns>
     /// <remarks>This method is intended to be overriden.</remarks>
-    protected virtual byte[] MoreData(byte[] data)
+    protected virtual Task<byte[]> MoreDataAsync(byte[] data, bool execAsync)
     {
-      return null;
+      return Task.FromResult<byte[]>(null);
     }
 
-    internal void Authenticate(bool reset)
+    internal async Task AuthenticateAsync(bool reset, bool execAsync)
     {
       CheckConstraints();
 
       MySqlPacket packet = _driver.Packet;
 
       // send auth response
-      packet.WriteString(GetUsername());
+      await packet.WriteStringAsync(GetUsername(), execAsync).ConfigureAwait(false);
 
       // now write the password
-      WritePassword(packet);
+      await WritePasswordAsync(packet, execAsync).ConfigureAwait(false);
 
       if ((Flags & ClientFlags.CONNECT_WITH_DB) != 0 || reset)
       {
         if (!String.IsNullOrEmpty(Settings.Database))
-          packet.WriteString(Settings.Database);
+          await packet.WriteStringAsync(Settings.Database, execAsync).ConfigureAwait(false);
       }
 
       if (reset)
-        packet.WriteInteger(8, 2);
+        await packet.WriteIntegerAsync(8, 2, execAsync).ConfigureAwait(false);
 
       if ((Flags & ClientFlags.PLUGIN_AUTH) != 0)
-        packet.WriteString(PluginName);
+        await packet.WriteStringAsync(PluginName, execAsync).ConfigureAwait(false);
 
-      _driver.SetConnectAttrs();
-      _driver.SendPacket(packet);
+      await _driver.SetConnectAttrsAsync(execAsync).ConfigureAwait(false);
+      await _driver.SendPacketAsync(packet, execAsync);
 
       // Read server response.
-      packet = ReadPacket();
+      packet = await ReadPacketAsync(execAsync).ConfigureAwait(false);
       byte[] b = packet.Buffer;
 
       if (PluginName == "caching_sha2_password" && b[0] == 0x01)
       {
         // React to the authentication type set by server: FAST, FULL.
-        ContinueAuthentication(new byte[] { b[1] });
+        await ContinueAuthenticationAsync(execAsync, new byte[] { b[1] }).ConfigureAwait(false);
       }
 
       // Auth switch request Protocol::AuthSwitchRequest.
@@ -184,12 +188,12 @@ namespace MySql.Data.MySqlClient.Authentication
       {
         if (packet.IsLastPacket)
         {
-          _driver.Close(true);
+          await _driver.CloseAsync(true, execAsync).ConfigureAwait(false);
           throw new MySqlException(Resources.OldPasswordsNotSupported);
         }
         else
         {
-          HandleAuthChange(packet);
+          await HandleAuthChangeAsync(packet, execAsync).ConfigureAwait(false);
         }
       }
 
@@ -197,37 +201,37 @@ namespace MySql.Data.MySqlClient.Authentication
       while (packet.Buffer[0] == 0x02)
       {
         ++_mfaIteration;
-        HandleMFA(packet);
+        await HandleMFAAsync(packet, execAsync).ConfigureAwait(false);
       }
 
-      _driver.ReadOk(false);
+      await _driver.ReadOkAsync(false, execAsync).ConfigureAwait(false);
 
       AuthenticationSuccessful();
     }
 
-    private void WritePassword(MySqlPacket packet)
+    private async Task WritePasswordAsync(MySqlPacket packet, bool execAsync)
     {
       bool secure = (Flags & ClientFlags.SECURE_CONNECTION) != 0;
       object password = GetPassword();
       if (password is string)
       {
         if (secure)
-          packet.WriteLenString((string)password);
+          await packet.WriteLenStringAsync((string)password, execAsync).ConfigureAwait(false);
         else
-          packet.WriteString((string)password);
+          await packet.WriteStringAsync((string)password, execAsync).ConfigureAwait(false);
       }
       else if (password == null)
         packet.WriteByte(0);
       else if (password is byte[])
-        packet.Write(password as byte[]);
+        await packet.WriteAsync(password as byte[], execAsync).ConfigureAwait(false);
       else throw new MySqlException("Unexpected password format: " + password.GetType());
     }
 
-    internal MySqlPacket ReadPacket()
+    internal async Task<MySqlPacket> ReadPacketAsync(bool execAsync)
     {
       try
       {
-        MySqlPacket p = _driver.ReadPacket();
+        MySqlPacket p = await _driver.ReadPacketAsync(execAsync).ConfigureAwait(false);
         return p;
       }
       catch (MySqlException ex)
@@ -238,61 +242,61 @@ namespace MySql.Data.MySqlClient.Authentication
       }
     }
 
-    private void HandleMFA(MySqlPacket packet)
+    private async Task HandleMFAAsync(MySqlPacket packet, bool execAsync)
     {
       byte b = packet.ReadByte();
       Debug.Assert(b == 0x02);
 
-      var nextPlugin = NextPlugin(packet);
+      var nextPlugin = await NextPluginAsync(packet, execAsync).ConfigureAwait(false);
       nextPlugin.CheckConstraints();
-      nextPlugin.ContinueAuthentication();
+      await nextPlugin.ContinueAuthenticationAsync(execAsync).ConfigureAwait(false);
     }
 
-    private void HandleAuthChange(MySqlPacket packet)
+    private async Task HandleAuthChangeAsync(MySqlPacket packet, bool execAsync)
     {
       byte b = packet.ReadByte();
       Debug.Assert(b == 0xfe);
 
-      var nextPlugin = NextPlugin(packet);
+      var nextPlugin = await NextPluginAsync(packet, execAsync).ConfigureAwait(false);
       nextPlugin.CheckConstraints();
-      nextPlugin.ContinueAuthentication();
+      await nextPlugin.ContinueAuthenticationAsync(execAsync).ConfigureAwait(false);
     }
 
-    private MySqlAuthenticationPlugin NextPlugin(MySqlPacket packet)
+    private async Task<MySqlAuthenticationPlugin> NextPluginAsync(MySqlPacket packet, bool execAsync)
     {
       string method = packet.ReadString();
       SwitchedPlugin = method;
       byte[] authData = new byte[packet.Length - packet.Position];
       Array.Copy(packet.Buffer, packet.Position, authData, 0, authData.Length);
 
-      MySqlAuthenticationPlugin plugin = GetPlugin(method, _driver, authData, _mfaIteration);
+      MySqlAuthenticationPlugin plugin = await GetPluginAsync(method, _driver, authData, execAsync, _mfaIteration).ConfigureAwait(false);
       return plugin;
     }
 
-    private void ContinueAuthentication(byte[] data = null)
+    private async Task ContinueAuthenticationAsync(bool execAsync, byte[] data = null)
     {
       MySqlPacket packet = _driver.Packet;
       packet.Clear();
 
-      byte[] moreData = MoreData(data);
+      byte[] moreData = await MoreDataAsync(data, execAsync).ConfigureAwait(false);
 
       while (moreData != null)
       {
         packet.Clear();
-        packet.Write(moreData);
-        _driver.SendPacket(packet);
+        await packet.WriteAsync(moreData, execAsync).ConfigureAwait(false);
+        await _driver.SendPacketAsync(packet, execAsync).ConfigureAwait(false);
 
-        packet = ReadPacket();
+        packet = await ReadPacketAsync(execAsync).ConfigureAwait(false);
         byte prefixByte = packet.Buffer[0];
         if (prefixByte != 1) return;
 
         // A prefix of 0x01 means need more auth data.
         byte[] responseData = new byte[packet.Length - 1];
         Array.Copy(packet.Buffer, 1, responseData, 0, responseData.Length);
-        moreData = MoreData(responseData);
+        moreData = await MoreDataAsync(responseData, execAsync).ConfigureAwait(false);
       }
       // We get here if MoreData returned null but the last packet read was a more data packet.
-      ReadPacket();
+      await ReadPacketAsync(execAsync).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -173,7 +173,7 @@ namespace MySql.Data.MySqlClient.Tests
       connStr.Server = "badHostName";
       MySqlConnection c = new MySqlConnection(connStr.GetConnectionString(true));
       var ex = Assert.Throws<MySqlException>(() => c.Open());
-      if (Platform.IsWindows()) Assert.IsTrue(ex.InnerException.GetType() == typeof(System.Net.Sockets.SocketException));
+      if (Platform.IsWindows()) Assert.IsTrue(ex.InnerException.GetType() == typeof(ArgumentException));
     }
 
     /// <summary>
@@ -323,7 +323,7 @@ namespace MySql.Data.MySqlClient.Tests
       ExecuteSQL(String.Format(
         "CREATE TABLE `{0}`.`footest` (id INT NOT NULL, name VARCHAR(100), dt DATETIME, tm TIME,  `multi word` int, PRIMARY KEY(id))", dbName), true);
 
-      await Connection.ChangeDataBaseAsync(dbName);
+      await Connection.ChangeDatabaseAsync(dbName);
 
       var cmd = Connection.CreateCommand();
       cmd.CommandText = "SELECT COUNT(*) FROM footest";
@@ -587,7 +587,7 @@ namespace MySql.Data.MySqlClient.Tests
       connection.Open();
       Assert.AreEqual(ConnectionState.Open, connection.State);
 
-      connection.Abort();
+      connection.AbortAsync(false).GetAwaiter().GetResult();
       Assert.AreEqual(ConnectionState.Closed, connection.State);
 
       connection.Open();
@@ -1123,148 +1123,6 @@ namespace MySql.Data.MySqlClient.Tests
       }
     }
 
-    [Test, Description("Verify Compression in classic protocol where default connection string is used without any option")]
-    public void CompressionValidationInClassicProtocol()
-    {
-      if (Version < new Version(8, 0, 0)) Assert.Ignore("This test is for MySql 8.0 or higher.");
-      string[] compressionAlgorithms = new string[] { "zlib", "zstd", "uncompressed", "uncompressed,zlib", "uncompressed,zstd", "zstd,zlib", "zstd,zlib,uncompressed" };
-      for (int k = 0; k < compressionAlgorithms.Length; k++)
-      {
-        ExecuteSQL($"SET GLOBAL protocol_compression_algorithms = \"{compressionAlgorithms[k]}\"");
-        using (var dbConn = new MySqlConnection(Connection.ConnectionString + ";UseCompression=True"))
-        {
-          if (k == 1)
-          {
-            Assert.Throws<MySqlException>(() => dbConn.Open());
-            continue;
-          }
-
-          dbConn.Open();
-          Assert.AreEqual(ConnectionState.Open, dbConn.State);
-          MySqlCommand cmd = new MySqlCommand();
-          cmd.Connection = dbConn;
-          cmd.CommandText = "select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1";
-          using (MySqlDataReader reader = cmd.ExecuteReader())
-          {
-            int i = 0;
-            if (reader.HasRows)
-            {
-              while (reader.Read())
-              {
-                if (i == 0)
-                {
-                  if (k == 2 || k == 4)
-                  {
-                    // Compression should have been set to OFF as UseCompression is set to True in connection string but server is 
-                    // started with uncompressed and uncompressed/zstd
-                    Assert.AreEqual("OFF", reader.GetString(1));
-                  }
-                  else
-                  {
-                    Assert.AreEqual("ON", reader.GetString(1));
-                  }
-                }
-                Assert.IsNotNull(reader.GetString(1));
-                i++;
-              }
-            }
-          }
-
-          cmd.CommandText = "select @@protocol_compression_algorithms";
-          using (MySqlDataReader reader = cmd.ExecuteReader())
-          {
-            string[] compressionValues = new string[] { "@@protocol_compression_algorithms" };
-            int i = 0;
-            if (reader.HasRows)
-            {
-              while (reader.Read())
-              {
-                Assert.AreEqual(compressionAlgorithms[k], reader.GetString(0));
-                i++;
-              }
-            }
-          }
-
-          dbConn.Close();
-          using (MySqlConnection c = new MySqlConnection(dbConn.ConnectionString + ";max pool size = 1"))
-          {
-            c.Open();
-            ParameterizedThreadStart pts = new ParameterizedThreadStart(PoolingWorker);
-            Thread t = new Thread(pts);
-            t.Start(c);
-          }
-
-          using (MySqlConnection c2 = new MySqlConnection(dbConn.ConnectionString + ";max pool size = 1"))
-          {
-            c2.Open();
-            KillConnection(c2, true);
-          }
-        }
-
-        using (var dbConn = new MySqlConnection(Connection.ConnectionString + ";UseCompression=false"))
-        {
-          if (k == 0 || k == 1 || k == 5)
-          {
-            Assert.Throws<MySqlException>(() => dbConn.Open());
-            continue;
-          }
-
-          dbConn.Open();
-          Assert.AreEqual(ConnectionState.Open, dbConn.State);
-          MySqlCommand cmd = new MySqlCommand();
-          cmd.Connection = dbConn;
-          cmd.CommandText = "select * from performance_schema.session_status where variable_name like 'COMPRESSION%' order by 1";
-          using (MySqlDataReader reader = cmd.ExecuteReader())
-          {
-            int i = 0;
-            if (reader.HasRows)
-            {
-              while (reader.Read())
-              {
-                if (i == 0)
-                {
-                  Assert.AreEqual("OFF", reader.GetString(1));
-                }
-                Assert.IsNotNull(reader.GetString(1));
-                i++;
-              }
-            }
-          }
-
-          cmd.CommandText = "select @@protocol_compression_algorithms";
-          using (MySqlDataReader reader = cmd.ExecuteReader())
-          {
-            string[] compressionValues = new string[] { "@@protocol_compression_algorithms" };
-            int i = 0;
-            if (reader.HasRows)
-            {
-              while (reader.Read())
-              {
-                Assert.AreEqual(compressionAlgorithms[k], reader.GetString(0));
-                i++;
-              }
-            }
-          }
-
-          dbConn.Close();
-          using (MySqlConnection c = new MySqlConnection(dbConn.ConnectionString + ";max pool size = 1"))
-          {
-            c.Open();
-            ParameterizedThreadStart pts = new ParameterizedThreadStart(PoolingWorker);
-            Thread t = new Thread(pts);
-            t.Start(c);
-          }
-
-          using (MySqlConnection c2 = new MySqlConnection(dbConn.ConnectionString + ";max pool size = 1"))
-          {
-            c2.Open();
-            KillConnection(c2);
-          }
-        }
-      }
-      ExecuteSQL($"SET GLOBAL protocol_compression_algorithms = \"zlib,zstd,uncompressed\"");
-    }
-
     [Test, Description("Test MySql Password Expiration with blank password")]
     public void ExpiredBlankPassword()
     {
@@ -1473,7 +1331,7 @@ namespace MySql.Data.MySqlClient.Tests
       using var cts = new CancellationTokenSource();
       cts.Cancel();
 
-      Assert.ThrowsAsync<TaskCanceledException>(async () => await conn.OpenAsync(cts.Token));
+      Assert.ThrowsAsync<OperationCanceledException>(async () => await conn.OpenAsync(cts.Token));
     }
 
     #region Methods

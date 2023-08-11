@@ -133,15 +133,6 @@ namespace MySql.Data {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Failed to load libzstd.dll. Removing zstd_stream from the client supported compression algorithms..
-        /// </summary>
-        internal static string CompressionFailedToLoadLibzstdAssembly {
-            get {
-                return ResourceManager.GetString("CompressionFailedToLoadLibzstdAssembly", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Compression using {0} is not supported in .NET Framework..
         /// </summary>
         internal static string CompressionForSpecificAlgorithmNotSupportedInNetFramework {
@@ -183,6 +174,15 @@ namespace MySql.Data {
         internal static string CompressionPendingMessagesToProcess {
             get {
                 return ResourceManager.GetString("CompressionPendingMessagesToProcess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Custom type mapping is only supported from .NET Core 3.1 and later..
+        /// </summary>
+        internal static string CustomTypeNotSupported {
+            get {
+                return ResourceManager.GetString("CustomTypeNotSupported", resourceCulture);
             }
         }
         

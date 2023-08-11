@@ -1,4 +1,4 @@
-// Copyright (c) 2004, 2022, Oracle and/or its affiliates.
+// Copyright (c) 2004, 2023, Oracle and/or its affiliates.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License, version 2.0, as
@@ -36,6 +36,8 @@ using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MySql.Data.Common
 {
@@ -162,8 +164,10 @@ namespace MySql.Data.Common
     /// <param name="baseStream">The base stream.</param>
     /// <param name="encoding">The encoding used in the SSL connection.</param>
     /// <param name="connectionString">The connection string used to establish the connection.</param>
+    /// <param name="execAsync">Boolean that indicates if the function will be executed asynchronously.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A <see cref="MySqlStream"/> instance ready to initiate an SSL connection.</returns>
-    public MySqlStream StartSSL(ref Stream baseStream, Encoding encoding, string connectionString)
+    public async Task<Tuple<MySqlStream, Stream>> StartSSLAsync(Stream baseStream, Encoding encoding, string connectionString, CancellationToken cancellationToken, bool execAsync)
     {
       // If SslCa connection option was provided, check for the file extension as it can also be set as a PFX file.
       if (_settings.SslCa != null)
@@ -174,9 +178,8 @@ namespace MySql.Data.Common
           _treatCertificatesAsPemFormat = fileExtension != "pfx";
       }
 
-      RemoteCertificateValidationCallback sslValidateCallback =
-          new RemoteCertificateValidationCallback(ServerCheckValidation);
-      SslStream ss = new SslStream(baseStream, false, sslValidateCallback, null);
+      RemoteCertificateValidationCallback sslValidateCallback = new RemoteCertificateValidationCallback(ServerCheckValidation);
+      SslStream sslStream = new SslStream(baseStream, false, sslValidateCallback, null);
       X509CertificateCollection certs = (_treatCertificatesAsPemFormat &&
         _settings.CertificateStoreLocation == MySqlCertificateStoreLocation.None)
         ? new X509CertificateCollection()
@@ -184,6 +187,7 @@ namespace MySql.Data.Common
 
       string connectionId = connectionString.GetHashCode().ToString();
       SslProtocols tlsProtocol = SslProtocols.None;
+
       if (_settings.TlsVersion != null)
       {
 #if NET452 || NETSTANDARD2_0
@@ -205,52 +209,59 @@ namespace MySql.Data.Common
         tlsProtocols = listProtocols.ToArray();
       }
 
-      lock (thisLock)
+      if (tlsConnectionRef.ContainsKey(connectionId))
       {
-        if (tlsConnectionRef.ContainsKey(connectionId))
+        tlsProtocol = tlsConnectionRef[connectionId];
+      }
+      else
+      {
+        if (!tlsRetry.ContainsKey(connectionId))
         {
-          tlsProtocol = tlsConnectionRef[connectionId];
+          tlsRetry[connectionId] = 0;
+        }
+        for (int i = tlsRetry[connectionId]; i < tlsProtocols.Length; i++)
+        {
+          tlsProtocol |= tlsProtocols[i];
+        }
+      }
+      try
+      {
+        tlsProtocol = (tlsProtocol == SslProtocols.None) ? SslProtocols.Tls12 : tlsProtocol;
+
+        if (execAsync)
+        {
+          using (cancellationToken.Register(() => throw new AggregateException($"Authentication to host '{_settings.Server}' failed.", new IOException())))
+            await sslStream.AuthenticateAsClientAsync(_settings.Server, certs, tlsProtocol, false).ConfigureAwait(false);
         }
         else
         {
-          if (!tlsRetry.ContainsKey(connectionId))
-          {
-            tlsRetry[connectionId] = 0;
-          }
-          for (int i = tlsRetry[connectionId]; i < tlsProtocols.Length; i++)
-          {
-            tlsProtocol |= tlsProtocols[i];
-          }
+          using (cancellationToken.Register(() => throw new AggregateException($"Authentication to host '{_settings.Server}' failed.", new IOException())))
+            sslStream.AuthenticateAsClientAsync(_settings.Server, certs, tlsProtocol, false).GetAwaiter().GetResult();
         }
-        try
+
+        tlsConnectionRef[connectionId] = tlsProtocol;
+        tlsRetry.Remove(connectionId);
+      }
+      catch (AggregateException ex)
+      {
+        if (ex.GetBaseException() is IOException)
         {
-          tlsProtocol = (tlsProtocol == SslProtocols.None) ? SslProtocols.Tls12 : tlsProtocol;
-          if (!ss.AuthenticateAsClientAsync(_settings.Server, certs, tlsProtocol, false).Wait((int)_settings.ConnectionTimeout * 1000))
-            throw new AggregateException($"Authentication to host '{_settings.Server}' failed.", new IOException());
-          tlsConnectionRef[connectionId] = tlsProtocol;
-          tlsRetry.Remove(connectionId);
-        }
-        catch (AggregateException ex)
-        {
-          if (ex.GetBaseException() is IOException)
+          tlsConnectionRef.Remove(connectionId);
+          if (tlsRetry.ContainsKey(connectionId))
           {
-            tlsConnectionRef.Remove(connectionId);
-            if (tlsRetry.ContainsKey(connectionId))
-            {
-              if (tlsRetry[connectionId] > tlsProtocols.Length)
-                throw new MySqlException(Resources.SslConnectionError, ex);
-              tlsRetry[connectionId] += 1;
-            }
+            if (tlsRetry[connectionId] > tlsProtocols.Length)
+              throw new MySqlException(Resources.SslConnectionError, ex);
+            tlsRetry[connectionId] += 1;
           }
-          throw ex.GetBaseException();
         }
+        throw ex.GetBaseException();
       }
 
-      baseStream = ss;
-      MySqlStream stream = new MySqlStream(ss, encoding, false);
+      baseStream = sslStream;
+      MySqlStream stream = new MySqlStream(sslStream, encoding, false);
       stream.SequenceByte = 2;
 
-      return stream;
+      return new Tuple<MySqlStream, Stream>(stream, baseStream);
     }
 
     /// <summary>
@@ -261,8 +272,7 @@ namespace MySql.Data.Common
     /// <param name="chain">The chain of certificate authorities associated with the remote certificate.</param>
     /// <param name="sslPolicyErrors">One or more errors associated with the remote certificate.</param>
     /// <returns><c>true</c> if no errors were found based on the selected SSL mode; <c>false</c>, otherwise.</returns>
-    private bool ServerCheckValidation(object sender, X509Certificate certificate,
-                                              X509Chain chain, SslPolicyErrors sslPolicyErrors)
+    private bool ServerCheckValidation(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
     {
       if (sslPolicyErrors == SslPolicyErrors.None)
         return true;

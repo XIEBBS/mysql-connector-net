@@ -318,9 +318,6 @@
   <data name="CompressionPendingMessagesToProcess" xml:space="preserve">
     <value>There are still decompressed messages pending to be processed.</value>
   </data>
-  <data name="CompressionFailedToLoadLibzstdAssembly" xml:space="preserve">
-    <value>Failed to load libzstd.dll. Removing zstd_stream from the client supported compression algorithms.</value>
-  </data>
   <data name="NoticeIdleConnection" xml:space="preserve">
     <value>Connection closed. Reason: connection idle was too long</value>
   </data>
@@ -336,5 +333,8 @@ different from the matched document.</value>
   </data>
   <data name="DocPathNullOrEmpty" xml:space="preserve">
     <value>The document path cannot be null or an empty string.</value>
+  </data>
+  <data name="CustomTypeNotSupported" xml:space="preserve">
+    <value>Custom type mapping is only supported from .NET Core 3.1 and later.</value>
   </data>
 </root>
