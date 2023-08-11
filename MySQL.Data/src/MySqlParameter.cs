@@ -310,9 +310,7 @@ namespace MySql.Data.MySqlClient
         Scale = this.Scale,
         Size = this.Size,
         IsNullable = this.IsNullable,
-        DbType = this.DbType,
         Encoding = this.Encoding,
-        _inferType = _inferType
       };
 
       // if we have not had our type set yet then our clone should not either
@@ -347,10 +345,10 @@ namespace MySql.Data.MySqlClient
         case MySqlDbType.UInt64:
           return (int)MySqlDbType.Int64 | UNSIGNED_MASK;
         case MySqlDbType.UInt32:
-          return (int)MySqlDbType.Int32 | UNSIGNED_MASK;
         case MySqlDbType.UInt24:
-        case MySqlDbType.Int24:
           return (int)MySqlDbType.Int32 | UNSIGNED_MASK;
+        case MySqlDbType.Int24:
+          return (int)MySqlDbType.Int32;
         case MySqlDbType.UInt16:
           return (int)MySqlDbType.Int16 | UNSIGNED_MASK;
         case MySqlDbType.Guid:
